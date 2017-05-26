@@ -1,0 +1,189 @@
+package app;
+
+import DataModel;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.Charset;
+import java.sql.Timestamp;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import org.apache.cassandra.config.Config;
+import org.apache.cassandra.dht.Murmur3Partitioner;
+import org.apache.cassandra.exceptions.InvalidRequestException;
+import org.apache.cassandra.io.sstable.CQLSSTableWriter;
+import org.apache.cassandra.io.sstable.CQLSSTableWriter.Builder;
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.support.ClassPathXmlApplicationContext;
+import org.supercsv.cellprocessor.constraint.NotNull;
+import org.supercsv.cellprocessor.ift.CellProcessor;
+import org.supercsv.io.CsvBeanReader;
+import org.supercsv.io.ICsvBeanReader;
+import org.supercsv.prefs.CsvPreference;
+
+public class SSTableLauncher {
+    public String CSV_URL = "";
+    public String DEFAULT_OUTPUT_DIR = "";
+    public String KEYSPACE = "";
+    public String TABLE = "";
+    public String SCHEMA = "";
+    public String INSERT_STMT = "";
+
+    public static void createStagingTables() {
+
+         // job configurations xml to launch the job
+        ApplicationContext context = new ClassPathXmlApplicationContext("spring-batch-context.xml”);
+        SSTableLauncher launcher = (SSTableLauncher)context.getBean("ssTableLauncher");
+        launcher.createOutputDirectory();
+    }
+
+    public void createOutputDirectory() {
+        File outputDir = new File(this.DEFAULT_OUTPUT_DIR + File.separator + this.KEYSPACE + File.separator + this.TABLE);
+        if(outputDir.exists()) {
+            try {
+                FileUtils.cleanDirectory(outputDir);
+            } catch (IOException ex) {
+                log.error("Input Output Exception.Exception Cause - [{}]. Exception stack trace is- [{}]", ex.getCause(), ex);
+            }
+        }
+
+        if(!outputDir.exists() && !outputDir.mkdirs()) {
+            throw new RuntimeException("Cannot create output directory: " + outputDir);
+        } else {
+            this.tableWriter(outputDir);
+        }
+    }
+
+    public void tableWriter(File outputDir) {
+        byte[] standardUrl = new byte[0];
+        Config.setClientMode(true);
+        //set the CQLSSTableWriter writer properties
+        Builder builder = CQLSSTableWriter.builder();
+        // we can select any partitoner based on our requirement.I have used murmur3partitioner
+        builder.inDirectory(outputDir).forTable(this.SCHEMA).withBufferSizeInMB(64).forTable(this.SCHEMA).using(this.INSERT_STMT).withPartitioner(new Murmur3Partitioner());
+        CQLSSTableWriter writer = builder.build();
+        // Constraints you can give while reading rows from .csv file say not null
+        CellProcessor[] processors = new CellProcessor[]{new NotNull(), null};
+
+        try {
+            standardUrl = this.CSV_URL.getBytes("UTF-8");
+        } catch (UnsupportedEncodingException exception) {
+            log.error("Unsupported Encoding Exception. Exception Cause - [{}]. Exception stack trace is- [{}]", exception.getCause(), exception);
+        }
+
+        String file = new String(standardUrl, Charset.forName("UTF-8"));
+
+        try {
+            //I am reading from a .csv file .You can read similarly from cassandra as shown in Cassandra Item Reader and create the row to write to SSTable
+            ICsvBeanReader beanReader = new CsvBeanReader(new FileReader(file), CsvPreference.STANDARD_PREFERENCE);
+
+            try {
+                String[] header = beanReader.getHeader(true);
+                DataModel beanPojo = null;
+                Date curDate = new Date();
+                // resd from .csv file 
+                while((beanPojo = (DataModel)beanReader.read(DataModel.class, header, processors)) != null) {
+
+                    try {
+                        // the columns in Cassandra should follow the order of fields in addRow method 
+                        writer.addRow(new Object[]{beanPojo.getField1, beanPojo.getField2);
+                    } catch (InvalidRequestException ex) {
+                        log.error("Invalid Request.Exception Cause - [{}]. Exception stack trace is- [{}]", ex.getCause(), ex);
+                    } catch (NumberFormatException ex1) {
+                        log.error("Number Format Exception.Exception Cause - [{}]. Exception stack trace is- [{}]", ex.getCause(), ex1);
+                    } catch (IOException ex2) {
+                        log.error("Input Output Exception.Exception Cause - [{}]. Exception stack trace is- [{}]", ex.getCause(), ex2);
+                    }
+                }
+            } catch (Exception exp) {
+              
+            } finally {
+                if(beanReader != null) {
+    
+                        try {
+                            beanReader.close();
+                        } catch (Exception exp) {
+                    
+                    } else {
+                        beanReader.close();
+                    }
+                }
+
+            }
+        } catch (FileNotFoundException excp) {
+            log.error("Could not find the CSV file:Exception Cause - [{}]. Exception stack trace is- [{}]", var37.getCause(), excp);
+        } catch (IOException excp) {
+            log.error("Error reading the CSV file:Exception Cause - [{}]. Exception stack trace is- [{}]", var38.getCause(), excp);
+        }
+
+        try {
+            writer.close();
+        } catch (IOException var29) {
+            log.info("Ignoring");
+        }
+
+    }
+
+    public StagingSSTableLauncher() {
+    }
+
+    public String getCSV_URL() {
+        return this.CSV_URL;
+    }
+
+    public String getDEFAULT_OUTPUT_DIR() {
+        return this.DEFAULT_OUTPUT_DIR;
+    }
+
+    public String getKEYSPACE() {
+        return this.KEYSPACE;
+    }
+
+    public String getTABLE() {
+        return this.TABLE;
+    }
+
+    public String getSCHEMA() {
+        return this.SCHEMA;
+    }
+
+    public String getINSERT_STMT() {
+        return this.INSERT_STMT;
+    }
+
+    public void setCSV_URL(String CSV_URL) {
+        this.CSV_URL = CSV_URL;
+    }
+
+    public void setDEFAULT_OUTPUT_DIR(String DEFAULT_OUTPUT_DIR) {
+        this.DEFAULT_OUTPUT_DIR = DEFAULT_OUTPUT_DIR;
+    }
+
+    public void setKEYSPACE(String KEYSPACE) {
+        this.KEYSPACE = KEYSPACE;
+    }
+
+    public void setTABLE(String TABLE) {
+        this.TABLE = TABLE;
+    }
+
+    public void setSCHEMA(String SCHEMA) {
+        this.SCHEMA = SCHEMA;
+    }
+
+    public void setINSERT_STMT(String INSERT_STMT) {
+        this.INSERT_STMT = INSERT_STMT;
+    }
+
+    public boolean equals(Object o) {
+    
+    public String toString() {
+        return "StagingSSTableLauncher(CSV_URL=" + this.getCSV_URL() + ", DEFAULT_OUTPUT_DIR=" + this.getDEFAULT_OUTPUT_DIR() + ", KEYSPACE=" + this.getKEYSPACE() + ", TABLE=" + this.getTABLE() + ", SCHEMA=" + this.getSCHEMA() + ", INSERT_STMT=" + this.getINSERT_STMT() + ")";
+    }
+}
