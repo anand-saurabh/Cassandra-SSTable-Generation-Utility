@@ -1,0 +1,79 @@
+package data.reader;
+
+import com.datastax.driver.core.ResultSet;
+import com.datastax.driver.core.Row;
+import com.datastax.driver.core.Session;
+import com.datastax.driver.core.SimpleStatement;
+import com.datastax.driver.core.Statement;
+import com.entity.DataPojo;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.NonTransientResourceException;
+import org.springframework.batch.item.ParseException;
+import org.springframework.batch.item.UnexpectedInputException;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.cassandra.core.CassandraOperations;
+
+public class CassandraBatchItemReader implements ItemReader<List<DataPojo>> {
+    private static final Logger log = LoggerFactory.getLogger(CassandraBatchItemReader.class);
+    ResultSet rs = null;
+    Iterator<Row> iter = null;
+    @Autowired
+    private CassandraOperations cassandraOperations;
+    @Autowired
+    private Session session;
+    private int index = 0;
+    @Value("${fetchSize}")
+    int fetchSize;
+    @Value("${batchSize}")
+    int batchSize;
+
+    public CassandraBatchItemReader() {
+    }
+
+    public List<DataPojo> read() throws Exception, UnexpectedInputException, ParseException, NonTransientResourceException {
+        Statement stmt = new SimpleStatement("select * from table_name”);
+        stmt.setFetchSize(this.fetchSize);
+        if(this.index == 0) {
+           
+            //fetch data in fetchsize for the first time from DB. 
+
+            this.rs = this.session.execute(stmt);
+            this.iter = this.rs.iterator();
+
+        } else if(!this.rs.isFullyFetched()) {
+
+            // fetch more rows unless all data is read from DB (read in fetch size from DB until all data is read) .
+            this.rs.fetchMoreResults();
+        }
+
+        ArrayList items = null;
+
+        while(this.iter.hasNext()) {
+            ++this.index;
+            Row row = (Row)this.iter.next();
+            String field1 = row.getString(“field1”);
+            String field2 = row.getString(“field2”);
+     
+                if(null == items) {
+                    items = new ArrayList();
+                }
+                dataPojo.setX
+                dataPojo.setY
+
+                items.add(dataPojo);
+                if(items.size() == this.batchSize) {
+                    return items;
+                }
+            }
+        }
+
+        return items;
+    }
+}
+
