@@ -1,4 +1,4 @@
-# SSTable-Importer
+# SSTable-Generation
 In this project, I have implemented a utility to generate SSTables from a existing Cassandra table or a .csv file. The application can be used to bulk upload the data into Cassandra tables in one go from a .csv or existing cassandra tables.  
 
 
